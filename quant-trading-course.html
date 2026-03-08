@@ -1,0 +1,2164 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quant Trading: Корреляция & Funding Rate Фарминг</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --bg2: #161b27;
+    --bg3: #1e2535;
+    --surface: #222840;
+    --border: #2d3555;
+    --border2: #3a4270;
+    --text: #e8eaf6;
+    --text2: #9ca3c4;
+    --text3: #636b96;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --accent3: #a5b4fc;
+    --green: #10b981;
+    --green2: #34d399;
+    --yellow: #f59e0b;
+    --yellow2: #fbbf24;
+    --red: #ef4444;
+    --red2: #f87171;
+    --cyan: #06b6d4;
+    --cyan2: #22d3ee;
+    --purple: #a855f7;
+    --purple2: #c084fc;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 260px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    z-index: 100;
+    padding: 24px 0;
+  }
+
+  .sidebar-logo {
+    padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .sidebar-logo .logo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: white;
+    margin-bottom: 8px;
+  }
+
+  .sidebar-logo h2 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text2);
+    line-height: 1.4;
+  }
+
+  .sidebar-section {
+    padding: 4px 12px;
+    margin-bottom: 4px;
+  }
+
+  .sidebar-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--text3);
+    text-transform: uppercase;
+    padding: 8px 8px 4px;
+  }
+
+  .sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+  }
+
+  .sidebar-link:hover, .sidebar-link.active {
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  .sidebar-link.active {
+    color: var(--accent3);
+  }
+
+  .sidebar-link .icon {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .sidebar-link .num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    margin-left: auto;
+  }
+
+  /* MAIN */
+  .main {
+    margin-left: 260px;
+    min-height: 100vh;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    position: sticky;
+    top: 0;
+    background: rgba(15,17,23,0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 48px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 50;
+  }
+
+  .breadcrumb {
+    font-size: 13px;
+    color: var(--text3);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .breadcrumb span { color: var(--text2); }
+
+  .topbar-right {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .tag-green { background: rgba(16,185,129,0.15); color: var(--green2); border: 1px solid rgba(16,185,129,0.3); }
+  .tag-blue { background: rgba(99,102,241,0.15); color: var(--accent3); border: 1px solid rgba(99,102,241,0.3); }
+  .tag-yellow { background: rgba(245,158,11,0.15); color: var(--yellow2); border: 1px solid rgba(245,158,11,0.3); }
+  .tag-cyan { background: rgba(6,182,212,0.15); color: var(--cyan2); border: 1px solid rgba(6,182,212,0.3); }
+  .tag-purple { background: rgba(168,85,247,0.15); color: var(--purple2); border: 1px solid rgba(168,85,247,0.3); }
+  .tag-red { background: rgba(239,68,68,0.15); color: var(--red2); border: 1px solid rgba(239,68,68,0.3); }
+
+  /* CONTENT */
+  .content {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 48px 120px;
+  }
+
+  /* HERO */
+  .hero {
+    margin-bottom: 56px;
+    position: relative;
+  }
+
+  .hero-eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 52px;
+    font-weight: 900;
+    line-height: 1.1;
+    color: var(--text);
+    margin-bottom: 20px;
+  }
+
+  .hero h1 .highlight {
+    background: linear-gradient(135deg, var(--accent2), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-desc {
+    font-size: 16px;
+    color: var(--text2);
+    line-height: 1.7;
+    max-width: 600px;
+    margin-bottom: 28px;
+  }
+
+  .hero-meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .hero-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text3);
+  }
+
+  .hero-meta-item strong { color: var(--text2); }
+
+  .hero-divider {
+    height: 1px;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--purple) 50%, transparent 100%);
+    margin-top: 36px;
+  }
+
+  /* SECTION PAGES */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* MODULE HEADER */
+  .module-header {
+    background: linear-gradient(135deg, var(--bg3) 0%, var(--surface) 100%);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .module-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--cyan), var(--purple));
+  }
+
+  .module-number {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: var(--accent2);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .module-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 12px;
+    line-height: 1.2;
+  }
+
+  .module-desc {
+    color: var(--text2);
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  .module-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* TYPOGRAPHY */
+  h2 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 36px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--accent3);
+    margin: 28px 0 10px;
+  }
+
+  h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 20px 0 8px;
+  }
+
+  p { margin-bottom: 14px; color: var(--text2); line-height: 1.75; }
+
+  strong { color: var(--text); font-weight: 600; }
+
+  em { color: var(--accent3); font-style: italic; }
+
+  a { color: var(--accent2); text-decoration: none; }
+  a:hover { color: var(--accent3); text-decoration: underline; }
+
+  /* CALLOUTS */
+  .callout {
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 20px 0;
+    display: flex;
+    gap: 14px;
+    border: 1px solid;
+  }
+
+  .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+
+  .callout-body {}
+
+  .callout-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .callout-text { font-size: 14px; line-height: 1.6; }
+
+  .callout-info {
+    background: rgba(99,102,241,0.08);
+    border-color: rgba(99,102,241,0.25);
+  }
+  .callout-info .callout-title { color: var(--accent3); }
+  .callout-info .callout-text { color: var(--text2); }
+
+  .callout-success {
+    background: rgba(16,185,129,0.08);
+    border-color: rgba(16,185,129,0.25);
+  }
+  .callout-success .callout-title { color: var(--green2); }
+  .callout-success .callout-text { color: var(--text2); }
+
+  .callout-warning {
+    background: rgba(245,158,11,0.08);
+    border-color: rgba(245,158,11,0.25);
+  }
+  .callout-warning .callout-title { color: var(--yellow2); }
+  .callout-warning .callout-text { color: var(--text2); }
+
+  .callout-danger {
+    background: rgba(239,68,68,0.08);
+    border-color: rgba(239,68,68,0.25);
+  }
+  .callout-danger .callout-title { color: var(--red2); }
+  .callout-danger .callout-text { color: var(--text2); }
+
+  /* CODE */
+  code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    background: var(--bg3);
+    color: var(--cyan2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  pre {
+    background: #0d1117;
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 20px 0;
+    overflow-x: auto;
+    position: relative;
+  }
+
+  pre .lang-badge {
+    position: absolute;
+    top: 10px; right: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  pre code {
+    background: none;
+    color: var(--text2);
+    padding: 0;
+    border: none;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .kw { color: #c792ea; }
+  .fn { color: #82aaff; }
+  .str { color: #c3e88d; }
+  .num { color: #f78c6c; }
+  .cm { color: #546e7a; font-style: italic; }
+  .op { color: #89ddff; }
+  .cls { color: #ffcb6b; }
+  .var { color: var(--text2); }
+
+  /* FORMULA */
+  .formula {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    color: var(--accent3);
+    text-align: center;
+  }
+
+  .formula-label {
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; margin: 20px 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  thead th {
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 600;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 2px solid var(--border2);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+  }
+
+  tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text2);
+    vertical-align: top;
+  }
+
+  tbody tr:hover td { background: var(--bg3); }
+
+  .td-green { color: var(--green2) !important; font-weight: 600; }
+  .td-red { color: var(--red2) !important; font-weight: 600; }
+  .td-yellow { color: var(--yellow2) !important; font-weight: 600; }
+  .td-mono { font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+
+  /* GRID CARDS */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 20px 0; }
+
+  .card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    transition: border-color 0.2s;
+  }
+
+  .card:hover { border-color: var(--border2); }
+
+  .card-icon { font-size: 24px; margin-bottom: 12px; }
+  .card-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .card-desc { font-size: 13px; color: var(--text2); line-height: 1.5; }
+
+  /* STEPS */
+  .steps { margin: 20px 0; }
+
+  .step {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  .step::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 32px;
+    bottom: -8px;
+    width: 1px;
+    background: var(--border2);
+  }
+
+  .step:last-child::before { display: none; }
+
+  .step-num {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .step-content {}
+  .step-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .step-desc { font-size: 14px; color: var(--text2); line-height: 1.6; }
+
+  /* EXAMPLE BOX */
+  .example-box {
+    background: rgba(6,182,212,0.06);
+    border: 1px solid rgba(6,182,212,0.2);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 20px 0;
+  }
+
+  .example-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--cyan);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .example-box p { color: var(--text2); margin-bottom: 8px; }
+  .example-box p:last-child { margin-bottom: 0; }
+
+  /* QUIZ */
+  .quiz-box {
+    background: rgba(168,85,247,0.06);
+    border: 1px solid rgba(168,85,247,0.2);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 28px 0;
+  }
+
+  .quiz-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--purple2);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .quiz-q { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+  .quiz-options { display: flex; flex-direction: column; gap: 8px; }
+
+  .quiz-opt {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text2);
+    transition: all 0.15s;
+  }
+
+  .quiz-opt:hover { border-color: var(--purple); color: var(--text); }
+  .quiz-opt.correct { border-color: var(--green); background: rgba(16,185,129,0.08); color: var(--green2); }
+  .quiz-opt.wrong { border-color: var(--red); background: rgba(239,68,68,0.08); color: var(--red2); }
+
+  .quiz-opt .letter {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+  }
+
+  /* NAV BUTTONS */
+  .nav-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    color: white;
+  }
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); color: white; }
+
+  .btn-ghost {
+    background: var(--bg3);
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--border2); }
+
+  /* PROGRESS BAR */
+  .progress-wrap {
+    padding: 0 20px 16px;
+  }
+  .progress-label {
+    font-size: 11px;
+    color: var(--text3);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .progress-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--cyan));
+    border-radius: 99px;
+    transition: width 0.5s ease;
+    width: 0%;
+  }
+
+  /* TOC TABLE */
+  .toc-table { margin: 20px 0; }
+  .toc-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border: 1px solid transparent;
+    margin-bottom: 4px;
+  }
+  .toc-row:hover { background: var(--bg3); border-color: var(--border); }
+  .toc-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    width: 32px;
+    flex-shrink: 0;
+  }
+  .toc-title { flex: 1; font-size: 14px; color: var(--text2); font-weight: 500; }
+  .toc-row:hover .toc-title { color: var(--text); }
+  .toc-time { font-size: 12px; color: var(--text3); }
+
+  /* STAT CARDS */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 24px 0;
+  }
+  .stat-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 26px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent2), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 4px;
+  }
+  .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* VISUAL CHART placeholder */
+  .chart-placeholder {
+    background: var(--bg3);
+    border: 1px dashed var(--border2);
+    border-radius: 10px;
+    padding: 40px 24px;
+    text-align: center;
+    margin: 20px 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .chart-bars {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 8px;
+    height: 100px;
+    margin-bottom: 12px;
+  }
+
+  .chart-bar {
+    width: 28px;
+    border-radius: 4px 4px 0 0;
+    transition: height 1s ease;
+  }
+
+  .chart-caption { font-size: 12px; color: var(--text3); }
+
+  /* LINK CARD */
+  .link-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 16px 0;
+    text-decoration: none;
+    transition: border-color 0.2s;
+  }
+  .link-card:hover { border-color: var(--accent); }
+  .link-card-icon { font-size: 24px; flex-shrink: 0; }
+  .link-card-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .link-card-url { font-size: 12px; color: var(--accent2); font-family: 'IBM Plex Mono', monospace; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; }
+    .content { padding: 24px 20px 80px; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .stat-grid { grid-template-columns: repeat(2,1fr); }
+    .hero h1 { font-size: 36px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-badge">⚡ QT COURSE</div>
+    <h2>Quant Trading<br>Корреляция & Funding</h2>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-label">
+      <span>Прогресс</span>
+      <span id="progress-pct">0%</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Введение</div>
+    <button class="sidebar-link active" onclick="showPage('intro', this)">
+      <span class="icon">🏠</span> О курсе <span class="num">01</span>
+    </button>
+    <button class="sidebar-link" onclick="showPage('basics', this)">
+      <span class="icon">📐</span> Основы Quant <span class="num">02</span>
+    </button>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Корреляция</div>
+    <button class="sidebar-link" onclick="showPage('corr1', this)">
+      <span class="icon">🔗</span> Что такое корреляция <span class="num">03</span>
+    </button>
+    <button class="sidebar-link" onclick="showPage('corr2', this)">
+      <span class="icon">📊</span> Pair Trading <span class="num">04</span>
+    </button>
+    <button class="sidebar-link" onclick="showPage('corr3', this)">
+      <span class="icon">🐍</span> Python: Корреляция <span class="num">05</span>
+    </button>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Funding Rate</div>
+    <button class="sidebar-link" onclick="showPage('fund1', this)">
+      <span class="icon">💰</span> Что такое Funding Rate <span class="num">06</span>
+    </button>
+    <button class="sidebar-link" onclick="showPage('fund2', this)">
+      <span class="icon">🌾</span> Funding Фарминг <span class="num">07</span>
+    </button>
+    <button class="sidebar-link" onclick="showPage('fund3', this)">
+      <span class="icon">⚙️</span> Механика и риски <span class="num">08</span>
+    </button>
+    <button class="sidebar-link" onclick="showPage('fund4', this)">
+      <span class="icon">🐍</span> Python: Funding <span class="num">09</span>
+    </button>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Стратегии</div>
+    <button class="sidebar-link" onclick="showPage('strat1', this)">
+      <span class="icon">🎯</span> Quant стратегии <span class="num">10</span>
+    </button>
+    <button class="sidebar-link" onclick="showPage('strat2', this)">
+      <span class="icon">🔄</span> Backtesting <span class="num">11</span>
+    </button>
+    <button class="sidebar-link" onclick="showPage('strat3', this)">
+      <span class="icon">🚀</span> Итог и дальше <span class="num">12</span>
+    </button>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="breadcrumb">QT Course <span>›</span> <span id="breadcrumb-text">О курсе</span></div>
+    <div class="topbar-right">
+      <span class="tag tag-green">Beginner</span>
+      <span class="tag tag-blue">Python</span>
+      <span class="tag tag-cyan">Crypto</span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ==================== PAGE: INTRO ==================== -->
+    <div class="page active" id="page-intro">
+      <div class="hero">
+        <div class="hero-eyebrow">⚡ Полный курс · 2025</div>
+        <h1>Quant Trading:<br><span class="highlight">Корреляция</span> &<br>Funding Фарминг</h1>
+        <p class="hero-desc">С нуля до собственных торговых стратегий. Узнаете как работают quant методы, как заработать на Funding Rate и как использовать корреляцию между активами.</p>
+        <div class="hero-meta">
+          <div class="hero-meta-item">📚 <strong>12 модулей</strong></div>
+          <div class="hero-meta-item">⏱ <strong>~8 часов</strong></div>
+          <div class="hero-meta-item">🐍 <strong>Python код</strong></div>
+          <div class="hero-meta-item">💡 <strong>Уровень: с нуля</strong></div>
+        </div>
+        <div class="hero-divider"></div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-value">12</div><div class="stat-label">Модулей</div></div>
+        <div class="stat-card"><div class="stat-value">30+</div><div class="stat-label">Примеров кода</div></div>
+        <div class="stat-card"><div class="stat-value">5+</div><div class="stat-label">Стратегий</div></div>
+        <div class="stat-card"><div class="stat-value">0→1</div><div class="stat-label">Уровень</div></div>
+      </div>
+
+      <h2>Что вы изучите</h2>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-icon">🔗</div>
+          <div class="card-title">Корреляционный арбитраж</div>
+          <div class="card-desc">Как находить связанные активы и торговать расхождением их цен. Pair Trading от А до Я.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">💰</div>
+          <div class="card-title">Funding Rate Фарминг</div>
+          <div class="card-desc">Как зарабатывать на разнице Funding Rate между биржами без направленного риска на рынке.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🐍</div>
+          <div class="card-title">Python для трейдинга</div>
+          <div class="card-desc">Реальный код для расчёта корреляций, бэктестинга стратегий и мониторинга Funding Rate.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📊</div>
+          <div class="card-title">Управление рисками</div>
+          <div class="card-desc">Позиционирование, стоп-лоссы, управление плечом — базовые правила quant трейдера.</div>
+        </div>
+      </div>
+
+      <h2>Содержание курса</h2>
+      <div class="toc-table">
+        <div class="toc-row" onclick="showPage('intro', document.querySelector('[onclick*=intro]'))"><span class="toc-num">01</span><span class="toc-title">О курсе и введение</span><span class="toc-time">15 мин</span></div>
+        <div class="toc-row" onclick="showPage('basics', document.querySelectorAll('.sidebar-link')[1])"><span class="toc-num">02</span><span class="toc-title">Основы Quantitative Trading</span><span class="toc-time">30 мин</span></div>
+        <div class="toc-row" onclick="showPage('corr1', document.querySelectorAll('.sidebar-link')[2])"><span class="toc-num">03</span><span class="toc-title">Что такое корреляция — теория</span><span class="toc-time">40 мин</span></div>
+        <div class="toc-row" onclick="showPage('corr2', document.querySelectorAll('.sidebar-link')[3])"><span class="toc-num">04</span><span class="toc-title">Pair Trading: стратегия на корреляции</span><span class="toc-time">45 мин</span></div>
+        <div class="toc-row" onclick="showPage('corr3', document.querySelectorAll('.sidebar-link')[4])"><span class="toc-num">05</span><span class="toc-title">Python: корреляция и Pair Trading</span><span class="toc-time">60 мин</span></div>
+        <div class="toc-row" onclick="showPage('fund1', document.querySelectorAll('.sidebar-link')[5])"><span class="toc-num">06</span><span class="toc-title">Funding Rate — как устроено</span><span class="toc-time">40 мин</span></div>
+        <div class="toc-row" onclick="showPage('fund2', document.querySelectorAll('.sidebar-link')[6])"><span class="toc-num">07</span><span class="toc-title">Стратегия: Funding Rate Фарминг</span><span class="toc-time">50 мин</span></div>
+        <div class="toc-row" onclick="showPage('fund3', document.querySelectorAll('.sidebar-link')[7])"><span class="toc-num">08</span><span class="toc-title">Механика, риски и ловушки</span><span class="toc-time">40 мин</span></div>
+        <div class="toc-row" onclick="showPage('fund4', document.querySelectorAll('.sidebar-link')[8])"><span class="toc-num">09</span><span class="toc-title">Python: мониторинг Funding Rate</span><span class="toc-time">60 мин</span></div>
+        <div class="toc-row" onclick="showPage('strat1', document.querySelectorAll('.sidebar-link')[9])"><span class="toc-num">10</span><span class="toc-title">Quant стратегии из репозитория</span><span class="toc-time">50 мин</span></div>
+        <div class="toc-row" onclick="showPage('strat2', document.querySelectorAll('.sidebar-link')[10])"><span class="toc-num">11</span><span class="toc-title">Backtesting: как проверять стратегию</span><span class="toc-time">45 мин</span></div>
+        <div class="toc-row" onclick="showPage('strat3', document.querySelectorAll('.sidebar-link')[11])"><span class="toc-num">12</span><span class="toc-title">Итог, ресурсы и следующие шаги</span><span class="toc-time">20 мин</span></div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body">
+          <div class="callout-title">Как пользоваться курсом</div>
+          <div class="callout-text">Навигируйте по левой панели. Каждый модуль содержит теорию, примеры, код на Python и мини-тест для проверки знаний. Рекомендуется проходить по порядку.</div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <div></div>
+        <button class="btn btn-primary" onclick="showPage('basics', document.querySelectorAll('.sidebar-link')[1])">Начать курс →</button>
+      </div>
+    </div>
+
+    <!-- ==================== PAGE: BASICS ==================== -->
+    <div class="page" id="page-basics">
+      <div class="module-header">
+        <div class="module-number">Модуль 02</div>
+        <div class="module-title">Основы Quant Trading</div>
+        <div class="module-desc">Что такое количественный трейдинг, чем он отличается от обычного и почему это работает.</div>
+        <div class="module-tags"><span class="tag tag-blue">Теория</span><span class="tag tag-green">Основы</span></div>
+      </div>
+
+      <h2>Что такое Quant Trading?</h2>
+      <p><strong>Quantitative Trading (Quant Trading)</strong> — это торговля на основе математических моделей, статистики и алгоритмов. Вместо того чтобы читать новости или смотреть на свечи, quant трейдер пишет код, который сам принимает решения.</p>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-icon">📰</div>
+          <div class="card-title">Обычный трейдер</div>
+          <div class="card-desc">Смотрит новости, графики, интуиция. Субъективно. Медленно.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🤖</div>
+          <div class="card-title">Quant трейдер</div>
+          <div class="card-desc">Математика + код + данные. Объективно. Быстро. Масштабируемо.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📈</div>
+          <div class="card-title">Цель</div>
+          <div class="card-desc">Найти статистическое преимущество (edge) и системно его эксплуатировать.</div>
+        </div>
+      </div>
+
+      <h2>Ключевые концепции</h2>
+
+      <h3>1. Alpha (Альфа)</h3>
+      <p>Избыточная доходность стратегии сверх рыночной. Если рынок +10%, а ваша стратегия +15% — ваша альфа = +5%. Цель quant трейдера — найти и сохранить альфу.</p>
+
+      <h3>2. Mean Reversion (Возврат к среднему)</h3>
+      <p>Многие финансовые активы склонны возвращаться к своему среднему значению. Это основа большинства quant стратегий — в том числе Pair Trading и Funding Farming.</p>
+
+      <div class="formula">
+        <div class="formula-label">Концепция Mean Reversion</div>
+        Если цена далеко от среднего → ожидаем возврат<br>
+        Отклонение = Текущая цена − Скользящее среднее
+      </div>
+
+      <h3>3. Арбитраж</h3>
+      <p>Одновременная покупка и продажа одного актива (или связанных активов) на разных рынках для извлечения безрискового дохода из разницы в ценах.</p>
+
+      <div class="callout callout-warning">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-body">
+          <div class="callout-title">Важно понять</div>
+          <div class="callout-text">«Безрисковый арбитраж» в теории на практике всегда имеет риски: исполнения, ликвидности, хранения. Настоящий quant всегда учитывает скрытые риски.</div>
+        </div>
+      </div>
+
+      <h2>Типы Quant стратегий</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Тип стратегии</th><th>Принцип</th><th>Горизонт</th><th>Примеры</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Stat Arb</strong></td><td>Торговля статистическими аномалиями</td><td>Минуты — дни</td><td>Pair Trading</td></tr>
+            <tr><td><strong>Market Making</strong></td><td>Выставление заявок с двух сторон стакана</td><td>Секунды</td><td>Spread Capturing</td></tr>
+            <tr><td><strong>Trend Following</strong></td><td>Следование тренду по сигналам</td><td>Дни — месяцы</td><td>MACD, Bollinger</td></tr>
+            <tr><td><strong>Funding Arbitrage</strong></td><td>Сбор funding rate без рыночного риска</td><td>Часы — дни</td><td>Cash-and-Carry</td></tr>
+            <tr><td><strong>Monte Carlo</strong></td><td>Симуляция вероятностных сценариев</td><td>Любой</td><td>Риск-менеджмент</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Что нужно уметь?</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Python (базовый уровень)</div>
+            <div class="step-desc">Достаточно знать переменные, циклы, функции. Библиотеки pandas, numpy, matplotlib — главные инструменты.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Базовая статистика</div>
+            <div class="step-desc">Среднее, стандартное отклонение, корреляция. Без университетской математики — только практическое понимание.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Понимание рынков</div>
+            <div class="step-desc">Как работают спот, фьючерсы, перпетуалы. Что такое лонг/шорт, маржа, ликвидация.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">Критическое мышление</div>
+            <div class="step-desc">Умение сомневаться в своих результатах. Backtesting — не гарантия будущей прибыли.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="quiz-box">
+        <div class="quiz-label">🧠 Мини-тест</div>
+        <div class="quiz-q">Что означает «Alpha» в контексте quant трейдинга?</div>
+        <div class="quiz-options">
+          <div class="quiz-opt" onclick="quizAnswer(this, false)"><span class="letter">A</span> Название первой буквы греческого алфавита</div>
+          <div class="quiz-opt" onclick="quizAnswer(this, true)"><span class="letter">B</span> Избыточная доходность стратегии сверх рыночной</div>
+          <div class="quiz-opt" onclick="quizAnswer(this, false)"><span class="letter">C</span> Тип рискового инструмента на бирже</div>
+          <div class="quiz-opt" onclick="quizAnswer(this, false)"><span class="letter">D</span> Размер позиции в процентах от депозита</div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn btn-ghost" onclick="showPage('intro', document.querySelectorAll('.sidebar-link')[0])">← Назад</button>
+        <button class="btn btn-primary" onclick="showPage('corr1', document.querySelectorAll('.sidebar-link')[2])">Корреляция →</button>
+      </div>
+    </div>
+
+    <!-- ==================== PAGE: CORR1 ==================== -->
+    <div class="page" id="page-corr1">
+      <div class="module-header">
+        <div class="module-number">Модуль 03</div>
+        <div class="module-title">Что такое корреляция</div>
+        <div class="module-desc">Математическая основа всех стратегий на связанных активах.</div>
+        <div class="module-tags"><span class="tag tag-blue">Теория</span><span class="tag tag-yellow">Статистика</span></div>
+      </div>
+
+      <h2>Корреляция простыми словами</h2>
+      <p>Корреляция — это мера того, <strong>насколько синхронно двигаются два актива</strong>. Если BTC растёт и ETH тоже растёт — они коррелированы. Если BTC растёт, а DXY падает — обратная корреляция.</p>
+
+      <div class="formula">
+        <div class="formula-label">Коэффициент корреляции Пирсона (r)</div>
+        r = Σ[(Xᵢ − X̄)(Yᵢ − Ȳ)] / [σₓ · σᵧ · n]
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">📐</div>
+        <div class="callout-body">
+          <div class="callout-title">Диапазон значений</div>
+          <div class="callout-text">r всегда от -1 до +1. Значение +1 = идеальная прямая корреляция. Значение -1 = идеальная обратная. Значение 0 = связи нет.</div>
+        </div>
+      </div>
+
+      <h2>Интерпретация коэффициента</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Значение r</th><th>Интерпретация</th><th>Пример в крипто</th></tr></thead>
+          <tbody>
+            <tr><td class="td-green td-mono">+0.9 → +1.0</td><td>Очень сильная прямая</td><td>BTC / ETH</td></tr>
+            <tr><td class="td-green td-mono">+0.7 → +0.9</td><td>Сильная прямая</td><td>BTC / SOL</td></tr>
+            <tr><td class="td-yellow td-mono">+0.5 → +0.7</td><td>Умеренная прямая</td><td>BTC / LINK</td></tr>
+            <tr><td class="td-mono">-0.3 → +0.3</td><td>Слабая или нет связи</td><td>BTC / USDT (стейбл)</td></tr>
+            <tr><td class="td-red td-mono">-0.7 → -0.5</td><td>Умеренная обратная</td><td>BTC / DXY (доллар)</td></tr>
+            <tr><td class="td-red td-mono">-1.0 → -0.9</td><td>Сильная обратная</td><td>Редко в крипто</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Скользящая корреляция</h2>
+      <p>Одна цифра корреляции за всё время — это грубо. Реальные трейдеры используют <strong>скользящую корреляцию</strong> (Rolling Correlation): вычисляем r за последние N дней и смотрим, как она меняется во времени.</p>
+
+      <div class="example-box">
+        <div class="example-label">📊 Пример</div>
+        <p>BTC и ETH имеют корреляцию <strong>r = 0.92</strong> на горизонте 1 год.</p>
+        <p>Но в момент краша LUNA в 2022 году корреляция временно упала до <strong>r = 0.45</strong> — ETH падал сильнее из-за специфических DeFi рисков.</p>
+        <p>Скользящая корреляция за 30 дней поймала бы этот сдвиг заранее.</p>
+      </div>
+
+      <h2>Коинтеграция vs Корреляция</h2>
+      <p>Это разные вещи! Корреляция показывает похожие движения. <strong>Коинтеграция</strong> — более сильное утверждение: активы связаны долгосрочно и их спред стабилен.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Корреляция</div>
+          <div class="card-desc">Активы движутся похоже в краткосрочном периоде. Может пропасть. Пример: две акции могут расти вместе на хайпе.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Коинтеграция</div>
+          <div class="card-desc">Линейная комбинация двух активов стационарна (возвращается к среднему). Более надёжная основа для стратегий.</div>
+        </div>
+      </div>
+
+      <h3>Тест Энгла-Грейнджера (ADF)</h3>
+      <p>Чтобы проверить коинтеграцию, используют статистический тест. P-value меньше 0.05 — пара коинтегрирована и можно строить стратегию.</p>
+
+      <div class="formula">
+        <div class="formula-label">Условие коинтеграции</div>
+        Если Y = a + b·X + ε, где ε — стационарный ряд → X и Y коинтегрированы
+      </div>
+
+      <h2>Популярные пары в крипто</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Пара</th><th>Корреляция (прибл.)</th><th>Логика</th></tr></thead>
+          <tbody>
+            <tr><td class="td-mono">BTC / ETH</td><td class="td-green">~0.90</td><td>Оба — топ активы, двигаются вместе</td></tr>
+            <tr><td class="td-mono">ETH / BNB</td><td class="td-green">~0.85</td><td>Обе — платформы для DeFi</td></tr>
+            <tr><td class="td-mono">SOL / AVAX</td><td class="td-green">~0.82</td><td>Конкуренты в L1 сегменте</td></tr>
+            <tr><td class="td-mono">BTC / GOLD</td><td class="td-yellow">~0.45</td><td>Оба — «цифровое/физическое золото»</td></tr>
+            <tr><td class="td-mono">BTC / DXY</td><td class="td-red">~ -0.60</td><td>Обратная: доллар сильнее = крипто слабее</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="quiz-box">
+        <div class="quiz-label">🧠 Мини-тест</div>
+        <div class="quiz-q">Какое значение коэффициента корреляции говорит о сильной обратной связи?</div>
+        <div class="quiz-options">
+          <div class="quiz-opt" onclick="quizAnswer(this, false)"><span class="letter">A</span> r = +0.85</div>
+          <div class="quiz-opt" onclick="quizAnswer(this, false)"><span class="letter">B</span> r = 0.0</div>
+          <div class="quiz-opt" onclick="quizAnswer(this, true)"><span class="letter">C</span> r = -0.91</div>
+          <div class="quiz-opt" onclick="quizAnswer(this, false)"><span class="letter">D</span> r = +0.3</div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn btn-ghost" onclick="showPage('basics', document.querySelectorAll('.sidebar-link')[1])">← Назад</button>
+        <button class="btn btn-primary" onclick="showPage('corr2', document.querySelectorAll('.sidebar-link')[3])">Pair Trading →</button>
+      </div>
+    </div>
+
+    <!-- ==================== PAGE: CORR2 ==================== -->
+    <div class="page" id="page-corr2">
+      <div class="module-header">
+        <div class="module-number">Модуль 04</div>
+        <div class="module-title">Pair Trading</div>
+        <div class="module-desc">Стратегия на корреляции — как торговать расхождением двух связанных активов.</div>
+        <div class="module-tags"><span class="tag tag-cyan">Стратегия</span><span class="tag tag-green">Арбитраж</span></div>
+      </div>
+
+      <h2>Идея Pair Trading</h2>
+      <p>Pair Trading (парная торговля) — это <strong>market-neutral стратегия</strong>: одновременно покупаем один актив и продаём другой, коррелированный с ним. Мы не делаем ставку на направление рынка — мы делаем ставку на <em>схождение спреда</em>.</p>
+
+      <div class="example-box">
+        <div class="example-label">💡 Базовая логика</div>
+        <p>BTC и ETH обычно движутся вместе (r = 0.92). Если вдруг ETH сильно «отстал» от BTC — это аномалия.</p>
+        <p>→ <strong>Покупаем ETH</strong> (он должен догнать BTC)</p>
+        <p>→ <strong>Продаём BTC в шорт</strong> (хеджируем общий рыночный риск)</p>
+        <p>→ Когда спред схлопнется — фиксируем прибыль на обеих ногах</p>
+      </div>
+
+      <h2>Механика стратегии</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Найти пару с высокой корреляцией</div>
+            <div class="step-desc">Тест на коинтеграцию (ADF test). P-value &lt; 0.05. Желательно логическое обоснование почему активы связаны.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Вычислить спред</div>
+            <div class="step-desc">Спред = log(Price_A) − β × log(Price_B), где β — коэффициент хеджирования (hedge ratio), найденный через регрессию.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Нормализовать спред (Z-score)</div>
+            <div class="step-desc">Z-score = (Спред − Среднее) / Стандартное отклонение. Z &gt; +2 = спред слишком большой = SHORT. Z &lt; -2 = слишком маленький = LONG.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">Войти и выйти из позиции</div>
+            <div class="step-desc">Открываем позицию при |Z| &gt; 2. Закрываем при |Z| &lt; 0.5 (возврат к среднему). Стоп-лосс при |Z| &gt; 3.5.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="formula">
+        <div class="formula-label">Z-score спреда</div>
+        Z = (Spread_t − μ_spread) / σ_spread<br><br>
+        <span style="font-size:12px; color: #6b7280;">Где μ = скользящее среднее спреда, σ = скользящее стандартное отклонение</span>
+      </div>
+
+      <h2>Когда открывать позиции</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Сигнал (Z-score)</th><th>Действие</th><th>Смысл</th></tr></thead>
+          <tbody>
+            <tr><td class="td-red td-mono">Z &gt; +2.0</td><td>SHORT A, LONG B</td><td>Актив A дорог относительно B → ожидаем сближение</td></tr>
+            <tr><td class="td-green td-mono">Z &lt; -2.0</td><td>LONG A, SHORT B</td><td>Актив A дёшев относительно B → ожидаем сближение</td></tr>
+            <tr><td class="td-yellow td-mono">|Z| &lt; 0.5</td><td>Закрыть позицию</td><td>Спред вернулся к норме → фиксируем прибыль</td></tr>
+            <tr><td class="td-red td-mono">|Z| &gt; 3.5</td><td>Стоп-лосс</td><td>Спред продолжает расходиться → режем убыток</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Преимущества и недостатки</h2>
+      <div class="grid-2">
+        <div class="card" style="border-color: rgba(16,185,129,0.3);">
+          <div class="card-title" style="color: var(--green2);">✅ Преимущества</div>
+          <div class="card-desc">
+            Market-neutral — не зависит от направления рынка.<br><br>
+            Работает в любом рыночном цикле (бычий/медвежий).<br><br>
+            Стабильные небольшие прибыли без больших рисков.
+          </div>
+        </div>
+        <div class="card" style="border-color: rgba(239,68,68,0.3);">
+          <div class="card-title" style="color: var(--red2);">❌ Недостатки</div>
+          <div class="card-desc">
+            Корреляция может «сломаться» (breakdown) — тогда убытки на обеих ногах.<br><br>
+            Требует плечо для значимой прибыли.<br><br>
+            Транзакционные издержки съедают прибыль.
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-danger">
+        <div class="callout-icon">🚨</div>
+        <div class="callout-body">
+          <div class="callout-title">Главный риск: Correlation Breakdown</div>
+          <div class="callout-text">Если одна из компаний паре получает специфический шок (hack, exploit, регуляторный удар), корреляция разрушается. Убыток на обеих ногах одновременно. Всегда держите стоп-лосс!</div>
+        </div>
+      </div>
+
+      <div class="quiz-box">
+        <div class="quiz-label">🧠 Мини-тест</div>
+        <div class="quiz-q">Z-score спреда = +2.5. Что делает Pair Trader?</div>
+        <div class="quiz-options">
+          <div class="quiz-opt" onclick="quizAnswer(this, false)"><span class="letter">A</span> Покупает оба актива — рынок растёт</div>
+          <div class="quiz-opt" onclick="quizAnswer(this, true)"><span class="letter">B</span> Открывает SHORT на актив A и LONG на актив B</div>
+          <div class="quiz-opt" onclick="quizAnswer(this, false)"><span class="letter">C</span> Ждёт пока Z-score вырастет ещё больше</div>
+          <div class="quiz-opt" onclick="quizAnswer(this, false)"><span class="letter">D</span> Закрывает все позиции</div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn btn-ghost" onclick="showPage('corr1', document.querySelectorAll('.sidebar-link')[2])">← Назад</button>
+        <button class="btn btn-primary" onclick="showPage('corr3', document.querySelectorAll('.sidebar-link')[4])">Python код →</button>
+      </div>
+    </div>
+
+    <!-- ==================== PAGE: CORR3 ==================== -->
+    <div class="page" id="page-corr3">
+      <div class="module-header">
+        <div class="module-number">Модуль 05</div>
+        <div class="module-title">Python: Корреляция & Pair Trading</div>
+        <div class="module-desc">Реальный код для расчёта корреляций, теста коинтеграции и построения стратегии.</div>
+        <div class="module-tags"><span class="tag tag-blue">Python</span><span class="tag tag-purple">Код</span></div>
+      </div>
+
+      <h2>Установка библиотек</h2>
+<pre><span class="lang-badge">BASH</span><code><span class="cm"># Основные библиотеки для quant анализа</span>
+pip install pandas numpy matplotlib scipy statsmodels yfinance ccxt</code></pre>
+
+      <h2>Загрузка данных</h2>
+<pre><span class="lang-badge">PYTHON</span><code><span class="kw">import</span> <span class="cls">pandas</span> <span class="kw">as</span> pd
+<span class="kw">import</span> <span class="cls">numpy</span> <span class="kw">as</span> np
+<span class="kw">import</span> <span class="cls">ccxt</span>
+<span class="kw">from</span> <span class="cls">datetime</span> <span class="kw">import</span> datetime
+
+<span class="cm"># Загружаем данные через ccxt (работает с Binance, Bybit и др.)</span>
+<span class="kw">def</span> <span class="fn">fetch_ohlcv</span>(exchange_id, symbol, timeframe<span class="op">=</span><span class="str">'1d'</span>, limit<span class="op">=</span><span class="num">365</span>):
+    exchange <span class="op">=</span> <span class="fn">getattr</span>(ccxt, exchange_id)()
+    ohlcv <span class="op">=</span> exchange.<span class="fn">fetch_ohlcv</span>(symbol, timeframe, limit<span class="op">=</span>limit)
+    df <span class="op">=</span> pd.<span class="fn">DataFrame</span>(ohlcv, columns<span class="op">=</span>[<span class="str">'timestamp'</span>,<span class="str">'open'</span>,<span class="str">'high'</span>,<span class="str">'low'</span>,<span class="str">'close'</span>,<span class="str">'volume'</span>])
+    df[<span class="str">'timestamp'</span>] <span class="op">=</span> pd.<span class="fn">to_datetime</span>(df[<span class="str">'timestamp'</span>], unit<span class="op">=</span><span class="str">'ms'</span>)
+    df.<span class="fn">set_index</span>(<span class="str">'timestamp'</span>, inplace<span class="op">=</span><span class="kw">True</span>)
+    <span class="kw">return</span> df[<span class="str">'close'</span>]
+
+<span class="cm"># Загружаем BTC и ETH</span>
+btc <span class="op">=</span> <span class="fn">fetch_ohlcv</span>(<span class="str">'binance'</span>, <span class="str">'BTC/USDT'</span>)
+eth <span class="op">=</span> <span class="fn">fetch_ohlcv</span>(<span class="str">'binance'</span>, <span class="str">'ETH/USDT'</span>)
+
+prices <span class="op">=</span> pd.<span class="fn">DataFrame</span>({<span class="str">'BTC'</span>: btc, <span class="str">'ETH'</span>: eth}).<span class="fn">dropna</span>()
+<span class="fn">print</span>(prices.<span class="fn">tail</span>())</code></pre>
+
+      <h2>Расчёт корреляции</h2>
+<pre><span class="lang-badge">PYTHON</span><code><span class="kw">import</span> <span class="cls">matplotlib</span>.pyplot <span class="kw">as</span> plt
+
+<span class="cm"># Логарифмические доходности (лучше чем просто цены)</span>
+returns <span class="op">=</span> <span class="fn">np.log</span>(prices <span class="op">/</span> prices.<span class="fn">shift</span>(<span class="num">1</span>)).<span class="fn">dropna</span>()
+
+<span class="cm"># Статическая корреляция</span>
+corr <span class="op">=</span> returns[<span class="str">'BTC'</span>].<span class="fn">corr</span>(returns[<span class="str">'ETH'</span>])
+<span class="fn">print</span>(<span class="fn">f</span><span class="str">"Корреляция BTC/ETH: {corr:.4f}"</span>)
+
+<span class="cm"># Скользящая корреляция за 30 дней</span>
+rolling_corr <span class="op">=</span> returns[<span class="str">'BTC'</span>].<span class="fn">rolling</span>(<span class="num">30</span>).<span class="fn">corr</span>(returns[<span class="str">'ETH'</span>])
+
+<span class="cm"># Визуализация</span>
+fig, (ax1, ax2) <span class="op">=</span> plt.<span class="fn">subplots</span>(<span class="num">2</span>, <span class="num">1</span>, figsize<span class="op">=</span>(<span class="num">12</span>, <span class="num">8</span>))
+
+prices.<span class="fn">plot</span>(ax<span class="op">=</span>ax1, title<span class="op">=</span><span class="str">'BTC и ETH цены (нормализованные)'</span>)
+rolling_corr.<span class="fn">plot</span>(ax<span class="op">=</span>ax2, title<span class="op">=</span><span class="str">'Скользящая корреляция 30d'</span>, color<span class="op">=</span><span class="str">'orange'</span>)
+ax2.<span class="fn">axhline</span>(y<span class="op">=</span><span class="num">0.7</span>, color<span class="op">=</span><span class="str">'red'</span>, linestyle<span class="op">=</span><span class="str">'--'</span>, label<span class="op">=</span><span class="str">'Min. порог 0.7'</span>)
+plt.<span class="fn">tight_layout</span>()
+plt.<span class="fn">show</span>()</code></pre>
+
+      <h2>Тест на коинтеграцию</h2>
+<pre><span class="lang-badge">PYTHON</span><code><span class="kw">from</span> <span class="cls">statsmodels</span>.tsa.stattools <span class="kw">import</span> coint, adfuller
+<span class="kw">from</span> <span class="cls">statsmodels</span>.regression.linear_model <span class="kw">import</span> OLS
+
+<span class="kw">def</span> <span class="fn">test_cointegration</span>(asset_a, asset_b):
+    <span class="str">"""Проверяем коинтеграцию пары активов"""</span>
+    log_a <span class="op">=</span> <span class="fn">np.log</span>(asset_a)
+    log_b <span class="op">=</span> <span class="fn">np.log</span>(asset_b)
+
+    <span class="cm"># Тест Энгла-Грейнджера</span>
+    score, pvalue, _ <span class="op">=</span> <span class="fn">coint</span>(log_a, log_b)
+
+    <span class="cm"># Находим hedge ratio через OLS регрессию</span>
+    model <span class="op">=</span> OLS(log_a, log_b).<span class="fn">fit</span>()
+    hedge_ratio <span class="op">=</span> model.params[<span class="num">0</span>]
+
+    <span class="cm"># Вычисляем спред</span>
+    spread <span class="op">=</span> log_a <span class="op">-</span> hedge_ratio <span class="op">*</span> log_b
+
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"P-value коинтеграции: {pvalue:.4f}"</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Hedge Ratio: {hedge_ratio:.4f}"</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Пара коинтегрирована: {pvalue < 0.05}"</span>)
+
+    <span class="kw">return</span> spread, hedge_ratio, pvalue
+
+spread, beta, pval <span class="op">=</span> <span class="fn">test_cointegration</span>(prices[<span class="str">'BTC'</span>], prices[<span class="str">'ETH'</span>])</code></pre>
+
+      <h2>Полная стратегия: Z-score сигналы</h2>
+<pre><span class="lang-badge">PYTHON</span><code><span class="kw">def</span> <span class="fn">pair_trading_signals</span>(spread, window<span class="op">=</span><span class="num">30</span>, entry_z<span class="op">=</span><span class="num">2.0</span>, exit_z<span class="op">=</span><span class="num">0.5</span>):
+    <span class="str">"""Генерируем торговые сигналы на основе Z-score"""</span>
+
+    <span class="cm"># Вычисляем скользящий Z-score</span>
+    mean <span class="op">=</span> spread.<span class="fn">rolling</span>(window).<span class="fn">mean</span>()
+    std  <span class="op">=</span> spread.<span class="fn">rolling</span>(window).<span class="fn">std</span>()
+    zscore <span class="op">=</span> (spread <span class="op">-</span> mean) <span class="op">/</span> std
+
+    signals <span class="op">=</span> pd.<span class="fn">DataFrame</span>(index<span class="op">=</span>spread.index)
+    signals[<span class="str">'zscore'</span>] <span class="op">=</span> zscore
+    signals[<span class="str">'position'</span>] <span class="op">=</span> <span class="num">0</span>
+
+    <span class="cm"># LONG когда спред слишком мал (Z < -entry_z)</span>
+    signals.<span class="fn">loc</span>[zscore <span class="op">&lt;</span> <span class="op">-</span>entry_z, <span class="str">'position'</span>] <span class="op">=</span>  <span class="num">1</span>
+    <span class="cm"># SHORT когда спред слишком велик (Z > +entry_z)</span>
+    signals.<span class="fn">loc</span>[zscore <span class="op">&gt;</span>  entry_z, <span class="str">'position'</span>] <span class="op">=</span> <span class="op">-</span><span class="num">1</span>
+    <span class="cm"># Выход когда Z вернулся к норме</span>
+    signals.<span class="fn">loc</span>[zscore.<span class="fn">abs</span>() <span class="op">&lt;</span> exit_z, <span class="str">'position'</span>] <span class="op">=</span>  <span class="num">0</span>
+
+    <span class="cm"># Forward fill позиции (держим до закрытия)</span>
+    signals[<span class="str">'position'</span>] <span class="op">=</span> signals[<span class="str">'position'</span>].<span class="fn">replace</span>(<span class="num">0</span>, np.nan).<span class="fn">ffill</span>().<span class="fn">fillna</span>(<span class="num">0</span>)
+
+    <span class="kw">return</span> signals
+
+signals <span class="op">=</span> <span class="fn">pair_trading_signals</span>(spread)
+<span class="fn">print</span>(<span class="fn">f</span><span class="str">"Сигналов LONG:  {(signals.position == 1).sum()}"</span>)
+<span class="fn">print</span>(<span class="fn">f</span><span class="str">"Сигналов SHORT: {(signals.position == -1).sum()}"</span>)</code></pre>
+
+      <div class="callout callout-success">
+        <div class="callout-icon">🔗</div>
+        <div class="callout-body">
+          <div class="callout-title">Репозиторий je-suis-tm/quant-trading</div>
+          <div class="callout-text">Полные реализации Pair Trading, Oil Money (корреляция нефти и валют), Ore Money и Smart Farmers доступны на GitHub. Изучайте реальный код после прохождения теории.</div>
+        </div>
+      </div>
+
+      <a class="link-card" href="https://github.com/je-suis-tm/quant-trading" target="_blank">
+        <span class="link-card-icon">🐙</span>
+        <div>
+          <div class="link-card-title">je-suis-tm / quant-trading</div>
+          <div class="link-card-url">github.com/je-suis-tm/quant-trading</div>
+        </div>
+      </a>
+
+      <div class="nav-buttons">
+        <button class="btn btn-ghost" onclick="showPage('corr2', document.querySelectorAll('.sidebar-link')[3])">← Назад</button>
+        <button class="btn btn-primary" onclick="showPage('fund1', document.querySelectorAll('.sidebar-link')[5])">Funding Rate →</button>
+      </div>
+    </div>
+
+    <!-- ==================== PAGE: FUND1 ==================== -->
+    <div class="page" id="page-fund1">
+      <div class="module-header">
+        <div class="module-number">Модуль 06</div>
+        <div class="module-title">Что такое Funding Rate</div>
+        <div class="module-desc">Механизм финансирования перпетуальных фьючерсов — откуда берутся деньги для фарминга.</div>
+        <div class="module-tags"><span class="tag tag-yellow">Крипто</span><span class="tag tag-blue">Теория</span></div>
+      </div>
+
+      <h2>Перпетуальные фьючерсы</h2>
+      <p>В отличие от обычных фьючерсов, <strong>перпетуальные контракты (perps)</strong> не имеют даты истечения. Их цена должна следовать за спот-ценой — иначе арбитраж разошёлся бы бесконечно.</p>
+      <p>Для привязки к споту используется механизм <strong>Funding Rate</strong>.</p>
+
+      <h2>Как работает Funding Rate</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Perp дороже спота → Bullish рынок</div>
+            <div class="step-desc">Много лонгов. Funding Rate = положительный. Лонги платят шортам каждые 8 часов. Рынок поощряет открывать шорты.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Perp дешевле спота → Bearish рынок</div>
+            <div class="step-desc">Много шортов. Funding Rate = отрицательный. Шорты платят лонгам. Рынок поощряет открывать лонги.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Выплата каждые 8 часов</div>
+            <div class="step-desc">На Binance/Bybit — 3 раза в день (00:00, 08:00, 16:00 UTC). OKX поддерживает почасовой funding. Размер = ставка × размер позиции.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="formula">
+        <div class="formula-label">Расчёт Funding Payment</div>
+        Выплата = Funding Rate (%) × Стоимость позиции<br><br>
+        <span style="font-size:12px; color:#6b7280;">Пример: BTC, позиция $10,000, rate = 0.05%</span><br>
+        <span style="font-size:12px;">Выплата = 0.0005 × $10,000 = <strong style="color: var(--green2);">$5 за 8 часов</strong></span>
+      </div>
+
+      <h2>Размеры Funding Rate</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Биржа</th><th>Интервал</th><th>Норма (нейтр)</th><th>Bull рынок</th><th>Пиковые значения</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Binance</strong></td><td>8 ч</td><td class="td-yellow">0.01%</td><td class="td-green">0.02-0.1%</td><td class="td-red">0.3-0.75%</td></tr>
+            <tr><td><strong>Bybit</strong></td><td>8 ч</td><td class="td-yellow">0.01%</td><td class="td-green">0.02-0.1%</td><td class="td-red">0.3-0.5%</td></tr>
+            <tr><td><strong>OKX</strong></td><td>1 ч</td><td class="td-yellow">0.00125%</td><td class="td-green">0.005-0.05%</td><td class="td-red">0.1%+</td></tr>
+            <tr><td><strong>dYdX</strong></td><td>1 ч</td><td class="td-yellow">~0%</td><td class="td-green">Переменный</td><td class="td-red">Переменный</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Аннуализированная доходность</h2>
+      <p>Чтобы понять насколько выгоден Funding Rate, считают APR (Annual Percentage Rate):</p>
+
+      <div class="formula">
+        <div class="formula-label">Funding Rate → APR</div>
+        APR = Funding Rate × 3 × 365 × 100%<br><br>
+        <span style="font-size:12px; color:#6b7280;">При Funding Rate = 0.01% (нейтральный рынок):</span><br>
+        <span style="font-size:12px;">APR = 0.0001 × 3 × 365 = <strong style="color: var(--accent3);">~10.95%</strong> годовых</span><br><br>
+        <span style="font-size:12px; color:#6b7280;">При bull рынке 0.05%:</span><br>
+        <span style="font-size:12px;">APR = 0.0005 × 3 × 365 = <strong style="color: var(--green2);">~54.75%</strong> годовых</span>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body">
+          <div class="callout-title">Кто платит Funding Rate?</div>
+          <div class="callout-text">Funding Rate — это не биржевой сбор. Деньги переходят напрямую от одних трейдеров к другим. Биржа только организует механизм расчёта. Это чистый P2P перевод внутри биржи.</div>
+        </div>
+      </div>
+
+      <div class="quiz-box">
+        <div class="quiz-label">🧠 Мини-тест</div>
+        <div class="quiz-q">Funding Rate = +0.05%. Кто кому платит?</div>
+        <div class="quiz-options">
+          <div class="quiz-opt" onclick="quizAnswer(this, false)"><span class="letter">A</span> Шорты платят лонгам</div>
+          <div class="quiz-opt" onclick="quizAnswer(this, true)"><span class="letter">B</span> Лонги платят шортам</div>
+          <div class="quiz-opt" onclick="quizAnswer(this, false)"><span class="letter">C</span> Биржа платит всем трейдерам</div>
+          <div class="quiz-opt" onclick="quizAnswer(this, false)"><span class="letter">D</span> Никто никому не платит</div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn btn-ghost" onclick="showPage('corr3', document.querySelectorAll('.sidebar-link')[4])">← Назад</button>
+        <button class="btn btn-primary" onclick="showPage('fund2', document.querySelectorAll('.sidebar-link')[6])">Стратегия фарминга →</button>
+      </div>
+    </div>
+
+    <!-- ==================== PAGE: FUND2 ==================== -->
+    <div class="page" id="page-fund2">
+      <div class="module-header">
+        <div class="module-number">Модуль 07</div>
+        <div class="module-title">Funding Rate Фарминг</div>
+        <div class="module-desc">Стратегия Cash-and-Carry: собираем Funding Rate без рыночного риска.</div>
+        <div class="module-tags"><span class="tag tag-green">Стратегия</span><span class="tag tag-yellow">Доходность</span></div>
+      </div>
+
+      <h2>Идея Cash-and-Carry</h2>
+      <p>Если Funding Rate высокий (рынок bullish, перпетуал дороже спота), мы можем:</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Купить BTC на спот</div>
+            <div class="step-desc">Держим реальный BTC. Нет риска ликвидации. Если цена растёт — мы в прибыли на споте.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Открыть SHORT BTC/USDT на перпетуале</div>
+            <div class="step-desc">Продаём контракт на ту же сумму. Если BTC растёт — шорт в убытке, но спот в прибыли. Дельта = 0.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Собираем Funding Rate</div>
+            <div class="step-desc">Каждые 8 часов получаем выплату от лонгов. Мы шорты, поэтому при положительном Funding Rate — нам платят.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">Закрыть позиции когда ставка падает</div>
+            <div class="step-desc">Продаём спот BTC + закрываем шорт. Фиксируем накопленный Funding Rate как прибыль.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="example-box">
+        <div class="example-label">💰 Числовой пример</div>
+        <p><strong>Депозит:</strong> $10,000 | BTC цена: $50,000 | Funding Rate: 0.05%/8ч</p>
+        <p>→ Покупаем 0.2 BTC на споте за $10,000</p>
+        <p>→ Открываем SHORT на $10,000 на перпетуале (плечо 1x)</p>
+        <p>→ Каждые 8 часов получаем: 0.0005 × $10,000 = <strong>$5</strong></p>
+        <p>→ В день: $5 × 3 = <strong>$15/день</strong></p>
+        <p>→ В месяц: $15 × 30 = <strong>$450/месяц</strong> = <strong>4.5% в месяц</strong></p>
+        <p>→ Годовая доходность: <strong>~54% APR</strong> (при неизменной ставке)</p>
+      </div>
+
+      <h2>Варианты стратегии</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Вариант</th><th>Спот нога</th><th>Шорт нога</th><th>Сложность</th><th>Риск</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Классический</strong></td><td>BTC на CEX</td><td>Perp на той же бирже</td><td class="td-green">Низкая</td><td class="td-green">Минимальный</td></tr>
+            <tr><td><strong>Cross-exchange</strong></td><td>BTC на Binance</td><td>Perp на Bybit (выше ставка)</td><td class="td-yellow">Средняя</td><td class="td-yellow">Execution risk</td></tr>
+            <tr><td><strong>DeFi версия</strong></td><td>stETH в DeFi</td><td>Perp на dYdX</td><td class="td-red">Высокая</td><td class="td-yellow">Smart contract</td></tr>
+            <tr><td><strong>Altcoin</strong></td><td>SOL/AVAX на споте</td><td>Perp того же актива</td><td class="td-yellow">Средняя</td><td class="td-red">Высокая волатильность</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Когда активировать стратегию</h2>
+      <p>Не всегда имеет смысл держать эту позицию. Оптимальные условия:</p>
+
+      <div class="grid-2">
+        <div class="card" style="border-color: rgba(16,185,129,0.3);">
+          <div class="card-title" style="color: var(--green2);">✅ Запускаем стратегию</div>
+          <div class="card-desc">
+            Funding Rate &gt; 0.03% (это ~33% APR)<br><br>
+            Ставка держалась высокой 3+ дней<br><br>
+            BTC в боковике или медленном росте<br><br>
+            Биржа стабильна, ликвидность хорошая
+          </div>
+        </div>
+        <div class="card" style="border-color: rgba(239,68,68,0.3);">
+          <div class="card-title" style="color: var(--red2);">❌ Не запускаем</div>
+          <div class="card-desc">
+            Funding Rate &lt; 0.01% (слабая доходность)<br><br>
+            Ставка отрицательная (тогда шорт платит лонгам!)<br><br>
+            Высокая волатильность — slippage съедает профит<br><br>
+            Биржа имеет проблемы с ликвидностью
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn btn-ghost" onclick="showPage('fund1', document.querySelectorAll('.sidebar-link')[5])">← Назад</button>
+        <button class="btn btn-primary" onclick="showPage('fund3', document.querySelectorAll('.sidebar-link')[7])">Риски →</button>
+      </div>
+    </div>
+
+    <!-- ==================== PAGE: FUND3 ==================== -->
+    <div class="page" id="page-fund3">
+      <div class="module-header">
+        <div class="module-number">Модуль 08</div>
+        <div class="module-title">Механика, риски и ловушки</div>
+        <div class="module-desc">Что может пойти не так и как защититься.</div>
+        <div class="module-tags"><span class="tag tag-red">Риски</span><span class="tag tag-yellow">Важно</span></div>
+      </div>
+
+      <h2>Главные риски Funding Farming</h2>
+
+      <h3>1. Funding Rate разворачивается</h3>
+      <p>Самый частый риск. Если ставка становится отрицательной — вы уже не получаете деньги, а платите. Стратегия из доходной превращается в убыточную.</p>
+
+      <div class="callout callout-warning">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-body">
+          <div class="callout-title">Как защититься</div>
+          <div class="callout-text">Мониторьте ставку в реальном времени. При падении ниже порога (например, 0.01%) — автоматически закрывайте позицию. Python скрипт для мониторинга — в следующем модуле.</div>
+        </div>
+      </div>
+
+      <h3>2. Basis Risk (Базисный риск)</h3>
+      <p>Цена перпетуала может временно сильно отклониться от спота во время крашей. Ваш шорт будет в сильной просадке на нереализованный PnL, хотя итоговый результат должен сойтись.</p>
+
+      <h3>3. Liquidation Risk на шорте</h3>
+      <p>Если вы используете плечо на перпетуальной ноге — при резком росте BTC шорт может быть ликвидирован. Решение: использовать <strong>плечо 1x (без плеча)</strong> или держать достаточный буфер маржи.</p>
+
+      <div class="formula">
+        <div class="formula-label">Безопасная маржа для шорта без плеча</div>
+        Маржа = Размер позиции × 100%<br>
+        Ликвидационная цена ≈ ∞ (нельзя ликвидировать)<br><br>
+        <span style="font-size:12px; color:#6b7280;">При 1x шорте на $10,000 нужно маржи $10,000</span>
+      </div>
+
+      <h3>4. Exchange Risk</h3>
+      <p>Биржа может быть взломана, заморожена, обанкрочена (FTX!). Используйте только топ-биржи и не держите всё на одной платформе.</p>
+
+      <h3>5. Slippage при закрытии</h3>
+      <p>При больших позициях или в периоды высокой волатильности проскальзывание при закрытии может съесть значительную часть прибыли от Funding.</p>
+
+      <h2>Таблица рисков</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Риск</th><th>Вероятность</th><th>Влияние</th><th>Митигация</th></tr></thead>
+          <tbody>
+            <tr><td>Rate разворот</td><td class="td-red">Высокая</td><td class="td-yellow">Среднее</td><td>Автоматический мониторинг, порог выхода</td></tr>
+            <tr><td>Basis risk</td><td class="td-yellow">Средняя</td><td class="td-yellow">Среднее</td><td>Та же биржа спот+перп, ждать схождения</td></tr>
+            <tr><td>Ликвидация</td><td class="td-green">Низкая (1x)</td><td class="td-red">Высокое</td><td>Использовать только 1x, без плеча</td></tr>
+            <tr><td>Exchange hack</td><td class="td-green">Низкая</td><td class="td-red">Катастрофическое</td><td>Диверсификация бирж, вывод прибыли</td></tr>
+            <tr><td>Slippage</td><td class="td-yellow">Средняя</td><td class="td-green">Низкое</td><td>Лимитные ордера, торговать в ликвидный период</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Правила управления капиталом</h2>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">📏 Размер позиции</div>
+          <div class="card-desc">Не более 20-30% от портфеля в одну стратегию. Оставшееся — в других активах или стратегиях.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">🏦 Биржевая диверсификация</div>
+          <div class="card-desc">Максимум 40-50% средств на одной бирже. Минимум 2-3 биржи: Binance, Bybit, OKX.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">📊 Порог выхода</div>
+          <div class="card-desc">Установите минимальную ставку для работы стратегии (например, 0.02%). Ниже — автоматически закрываем.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">🔄 Регулярный вывод</div>
+          <div class="card-desc">Выводите накопленную прибыль еженедельно или ежемесячно. Не оставляйте всё на бирже.</div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn btn-ghost" onclick="showPage('fund2', document.querySelectorAll('.sidebar-link')[6])">← Назад</button>
+        <button class="btn btn-primary" onclick="showPage('fund4', document.querySelectorAll('.sidebar-link')[8])">Python код →</button>
+      </div>
+    </div>
+
+    <!-- ==================== PAGE: FUND4 ==================== -->
+    <div class="page" id="page-fund4">
+      <div class="module-header">
+        <div class="module-number">Модуль 09</div>
+        <div class="module-title">Python: Мониторинг Funding Rate</div>
+        <div class="module-desc">Код для сбора, анализа и мониторинга Funding Rate в реальном времени.</div>
+        <div class="module-tags"><span class="tag tag-blue">Python</span><span class="tag tag-purple">Код</span></div>
+      </div>
+
+      <h2>Получение Funding Rate через ccxt</h2>
+<pre><span class="lang-badge">PYTHON</span><code><span class="kw">import</span> <span class="cls">ccxt</span>
+<span class="kw">import</span> <span class="cls">pandas</span> <span class="kw">as</span> pd
+<span class="kw">import</span> <span class="cls">numpy</span> <span class="kw">as</span> np
+<span class="kw">from</span> <span class="cls">datetime</span> <span class="kw">import</span> datetime, timedelta
+
+<span class="kw">def</span> <span class="fn">get_funding_rate</span>(symbol<span class="op">=</span><span class="str">'BTC/USDT:USDT'</span>, exchange_id<span class="op">=</span><span class="str">'binance'</span>):
+    <span class="str">"""Получаем текущий Funding Rate"""</span>
+    exchange <span class="op">=</span> <span class="fn">getattr</span>(ccxt, exchange_id)({
+        <span class="str">'options'</span>: {<span class="str">'defaultType'</span>: <span class="str">'future'</span>}
+    })
+    funding <span class="op">=</span> exchange.<span class="fn">fetch_funding_rate</span>(symbol)
+    rate <span class="op">=</span> funding[<span class="str">'fundingRate'</span>]
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Funding Rate {symbol}: {rate*100:.4f}%"</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"APR (грубо): {rate * 3 * 365 * 100:.2f}%"</span>)
+    <span class="kw">return</span> rate
+
+<span class="cm"># Проверяем несколько монет</span>
+coins <span class="op">=</span> [<span class="str">'BTC/USDT:USDT'</span>, <span class="str">'ETH/USDT:USDT'</span>, <span class="str">'SOL/USDT:USDT'</span>]
+<span class="kw">for</span> coin <span class="kw">in</span> coins:
+    <span class="fn">get_funding_rate</span>(coin)</code></pre>
+
+      <h2>Исторические данные Funding Rate</h2>
+<pre><span class="lang-badge">PYTHON</span><code><span class="kw">def</span> <span class="fn">get_funding_history</span>(symbol, exchange_id<span class="op">=</span><span class="str">'binance'</span>, days<span class="op">=</span><span class="num">30</span>):
+    <span class="str">"""История Funding Rate за N дней"""</span>
+    exchange <span class="op">=</span> <span class="fn">getattr</span>(ccxt, exchange_id)({
+        <span class="str">'options'</span>: {<span class="str">'defaultType'</span>: <span class="str">'future'</span>}
+    })
+    since <span class="op">=</span> exchange.<span class="fn">parse8601</span>(
+        (datetime.<span class="fn">utcnow</span>() <span class="op">-</span> timedelta(days<span class="op">=</span>days)).<span class="fn">strftime</span>(<span class="str">'%Y-%m-%dT%H:%M:%SZ'</span>)
+    )
+    history <span class="op">=</span> exchange.<span class="fn">fetch_funding_rate_history</span>(symbol, since)
+    df <span class="op">=</span> pd.<span class="fn">DataFrame</span>(history)[[<span class="str">'timestamp'</span>, <span class="str">'fundingRate'</span>]]
+    df[<span class="str">'timestamp'</span>] <span class="op">=</span> pd.<span class="fn">to_datetime</span>(df[<span class="str">'timestamp'</span>], unit<span class="op">=</span><span class="str">'ms'</span>)
+    df.<span class="fn">set_index</span>(<span class="str">'timestamp'</span>, inplace<span class="op">=</span><span class="kw">True</span>)
+    df[<span class="str">'APR'</span>] <span class="op">=</span> df[<span class="str">'fundingRate'</span>] <span class="op">*</span> <span class="num">3</span> <span class="op">*</span> <span class="num">365</span> <span class="op">*</span> <span class="num">100</span>
+
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"\n=== {symbol} — {days} дней ==="</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Средний Rate: {df.fundingRate.mean()*100:.4f}%"</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Средний APR:  {df.APR.mean():.2f}%"</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Мин Rate:     {df.fundingRate.min()*100:.4f}%"</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Макс Rate:    {df.fundingRate.max()*100:.4f}%"</span>)
+    <span class="kw">return</span> df
+
+df_btc <span class="op">=</span> <span class="fn">get_funding_history</span>(<span class="str">'BTC/USDT:USDT'</span>, days<span class="op">=</span><span class="num">30</span>)</code></pre>
+
+      <h2>Симулятор доходности</h2>
+<pre><span class="lang-badge">PYTHON</span><code><span class="kw">def</span> <span class="fn">simulate_farming</span>(funding_history, capital, fee_rate<span class="op">=</span><span class="num">0.0004</span>):
+    <span class="str">"""
+    Симулируем Cash-and-Carry стратегию.
+    fee_rate = комиссия за открытие/закрытие (Binance taker: 0.04%)
+    """</span>
+    df <span class="op">=</span> funding_history.<span class="fn">copy</span>()
+
+    <span class="cm"># Только положительные ставки (мы шорты → получаем)</span>
+    df[<span class="str">'earned'</span>] <span class="op">=</span> df[<span class="str">'fundingRate'</span>].<span class="fn">clip</span>(lower<span class="op">=</span><span class="num">0</span>) <span class="op">*</span> capital
+
+    <span class="cm"># Вычитаем издержки (открытие + закрытие = 2 × fee_rate)</span>
+    entry_cost <span class="op">=</span> capital <span class="op">*</span> fee_rate <span class="op">*</span> <span class="num">2</span>
+
+    total_earned <span class="op">=</span> df[<span class="str">'earned'</span>].<span class="fn">sum</span>() <span class="op">-</span> entry_cost
+    total_days <span class="op">=</span> <span class="fn">len</span>(df) <span class="op">/</span> <span class="num">3</span>
+    roi <span class="op">=</span> total_earned <span class="op">/</span> capital <span class="op">*</span> <span class="num">100</span>
+    apr <span class="op">=</span> roi <span class="op">/</span> total_days <span class="op">*</span> <span class="num">365</span>
+
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"\n=== Симуляция на ${capital:,.0f} ==="</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Период:         {total_days:.0f} дней"</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Заработано:     ${total_earned:.2f}"</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"ROI за период:  {roi:.2f}%"</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Проекция APR:   {apr:.2f}%"</span>)
+    <span class="kw">return</span> df
+
+result <span class="op">=</span> <span class="fn">simulate_farming</span>(df_btc, capital<span class="op">=</span><span class="num">10000</span>)</code></pre>
+
+      <h2>Автоматический мониторинг (alert)</h2>
+<pre><span class="lang-badge">PYTHON</span><code><span class="kw">import</span> <span class="cls">time</span>
+
+<span class="kw">def</span> <span class="fn">monitor_funding</span>(symbols, min_apr<span class="op">=</span><span class="num">20</span>, interval_min<span class="op">=</span><span class="num">30</span>):
+    <span class="str">"""
+    Мониторинг Funding Rate в реальном времени.
+    Алерт когда APR превышает min_apr.
+    """</span>
+    exchange <span class="op">=</span> ccxt.<span class="fn">binance</span>({<span class="str">'options'</span>: {<span class="str">'defaultType'</span>: <span class="str">'future'</span>}})
+
+    <span class="kw">while</span> <span class="kw">True</span>:
+        ts <span class="op">=</span> datetime.<span class="fn">utcnow</span>().<span class="fn">strftime</span>(<span class="str">'%H:%M:%S'</span>)
+        <span class="fn">print</span>(<span class="fn">f</span><span class="str">"\n[{ts} UTC] Сканирование..."</span>)
+
+        <span class="kw">for</span> sym <span class="kw">in</span> symbols:
+            <span class="kw">try</span>:
+                data <span class="op">=</span> exchange.<span class="fn">fetch_funding_rate</span>(sym)
+                rate <span class="op">=</span> data[<span class="str">'fundingRate'</span>]
+                apr  <span class="op">=</span> rate <span class="op">*</span> <span class="num">3</span> <span class="op">*</span> <span class="num">365</span> <span class="op">*</span> <span class="num">100</span>
+                flag <span class="op">=</span> <span class="str">"🔥 ALERT!"</span> <span class="kw">if</span> apr <span class="op">&gt;</span> min_apr <span class="kw">else</span> <span class="str">""</span>
+                <span class="fn">print</span>(<span class="fn">f</span><span class="str">"  {sym}: {rate*100:.4f}% | APR: {apr:.1f}% {flag}"</span>)
+            <span class="kw">except</span> <span class="kw">Exception</span> <span class="kw">as</span> e:
+                <span class="fn">print</span>(<span class="fn">f</span><span class="str">"  Error {sym}: {e}"</span>)
+
+        time.<span class="fn">sleep</span>(interval_min <span class="op">*</span> <span class="num">60</span>)
+
+<span class="cm"># Запускаем мониторинг</span>
+watchlist <span class="op">=</span> [<span class="str">'BTC/USDT:USDT'</span>, <span class="str">'ETH/USDT:USDT'</span>, <span class="str">'SOL/USDT:USDT'</span>, <span class="str">'BNB/USDT:USDT'</span>]
+<span class="fn">monitor_funding</span>(watchlist, min_apr<span class="op">=</span><span class="num">25</span>, interval_min<span class="op">=</span><span class="num">30</span>)</code></pre>
+
+      <div class="callout callout-success">
+        <div class="callout-icon">🚀</div>
+        <div class="callout-body">
+          <div class="callout-title">Следующий уровень</div>
+          <div class="callout-text">Добавьте Telegram-бота для уведомлений через библиотеку python-telegram-bot. Тогда скрипт будет присылать алерт прямо в мессенджер когда APR &gt; 30%.</div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn btn-ghost" onclick="showPage('fund3', document.querySelectorAll('.sidebar-link')[7])">← Назад</button>
+        <button class="btn btn-primary" onclick="showPage('strat1', document.querySelectorAll('.sidebar-link')[9])">Quant стратегии →</button>
+      </div>
+    </div>
+
+    <!-- ==================== PAGE: STRAT1 ==================== -->
+    <div class="page" id="page-strat1">
+      <div class="module-header">
+        <div class="module-number">Модуль 10</div>
+        <div class="module-title">Quant стратегии из репозитория</div>
+        <div class="module-desc">Обзор стратегий из je-suis-tm/quant-trading: от Pair Trading до Oil Money.</div>
+        <div class="module-tags"><span class="tag tag-cyan">Стратегии</span><span class="tag tag-blue">GitHub</span></div>
+      </div>
+
+      <h2>Репозиторий je-suis-tm/quant-trading</h2>
+      <p>Один из лучших открытых ресурсов для изучения quant стратегий на Python. Содержит 15+ стратегий с полным кодом, объяснениями и бэктестом.</p>
+
+      <a class="link-card" href="https://github.com/je-suis-tm/quant-trading" target="_blank">
+        <span class="link-card-icon">⭐</span>
+        <div>
+          <div class="link-card-title">9,300+ stars · 1,700+ forks</div>
+          <div class="link-card-url">github.com/je-suis-tm/quant-trading</div>
+        </div>
+      </a>
+
+      <h2>Стратегии и их суть</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Стратегия</th><th>Тип</th><th>Суть</th><th>Сложность</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Pair Trading</strong></td><td class="tag tag-green" style="font-size:11px;">Stat Arb</td><td>Торговля на коинтеграции двух активов</td><td class="td-green">⭐⭐</td></tr>
+            <tr><td><strong>Oil Money</strong></td><td class="tag tag-cyan" style="font-size:11px;">Macro</td><td>Корреляция нефти с валютами (CAD, NOK, RUB)</td><td class="td-yellow">⭐⭐⭐</td></tr>
+            <tr><td><strong>Smart Farmers</strong></td><td class="tag tag-cyan" style="font-size:11px;">Macro</td><td>Корреляция аграрных коммодитис с валютами</td><td class="td-yellow">⭐⭐⭐</td></tr>
+            <tr><td><strong>Bollinger Bands</strong></td><td class="tag tag-blue" style="font-size:11px;">Mean Rev</td><td>Торговля отклонений от скользящего среднего</td><td class="td-green">⭐⭐</td></tr>
+            <tr><td><strong>Monte Carlo</strong></td><td class="tag tag-purple" style="font-size:11px;">Симуляция</td><td>Симуляция тысяч сценариев для risk management</td><td class="td-red">⭐⭐⭐⭐</td></tr>
+            <tr><td><strong>Dual Thrust</strong></td><td class="tag tag-yellow" style="font-size:11px;">Breakout</td><td>Стратегия пробоя диапазона</td><td class="td-yellow">⭐⭐⭐</td></tr>
+            <tr><td><strong>Heikin-Ashi</strong></td><td class="tag tag-yellow" style="font-size:11px;">Trend</td><td>Сглаженные японские свечи для тренда</td><td class="td-green">⭐⭐</td></tr>
+            <tr><td><strong>MACD</strong></td><td class="tag tag-yellow" style="font-size:11px;">Trend</td><td>Следование тренду через пересечение EMA</td><td class="td-green">⭐</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Детально: Oil Money Project</h2>
+      <p>Интересная стратегия из репозитория. Нефть и нефтяные валюты (CAD, NOK, RUB) высоко коррелированы. Когда нефть растёт, эти валюты укрепляются. Когда нефть падает — слабеют.</p>
+
+      <div class="example-box">
+        <div class="example-label">🛢️ Логика стратегии Oil Money</div>
+        <p><strong>Входные данные:</strong> Цена нефти (WTI/Brent) + курс USD/CAD</p>
+        <p><strong>Сигнал:</strong> Если нефть резко выросла, но CAD ещё не отреагировал → покупаем CAD (продаём USD/CAD)</p>
+        <p><strong>Выход:</strong> Когда корреляция восстановилась (Z-score спреда вернулся к 0)</p>
+        <p><strong>Преимущество:</strong> Торгуем на FX рынке (ликвидность огромная) по сигналу с товарного рынка</p>
+      </div>
+
+      <h2>Как изучать репозиторий</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Начать с Pair Trading</div>
+            <div class="step-desc">Самая простая стратегия из репо. Понять код, запустить локально, проверить на своих данных.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Разобрать Oil Money Project</div>
+            <div class="step-desc">Отличный пример macro correlation стратегии. Изучите как автор находит коинтеграцию между разными классами активов.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Адаптировать под крипто</div>
+            <div class="step-desc">Заменить FX/акции на крипто пары. BTC/ETH, SOL/AVAX, BNB/ETH — богатый выбор для корреляционных стратегий.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn btn-ghost" onclick="showPage('fund4', document.querySelectorAll('.sidebar-link')[8])">← Назад</button>
+        <button class="btn btn-primary" onclick="showPage('strat2', document.querySelectorAll('.sidebar-link')[10])">Backtesting →</button>
+      </div>
+    </div>
+
+    <!-- ==================== PAGE: STRAT2 ==================== -->
+    <div class="page" id="page-strat2">
+      <div class="module-header">
+        <div class="module-number">Модуль 11</div>
+        <div class="module-title">Backtesting стратегий</div>
+        <div class="module-desc">Как правильно тестировать стратегию на исторических данных и не обмануть себя.</div>
+        <div class="module-tags"><span class="tag tag-purple">Анализ</span><span class="tag tag-blue">Python</span></div>
+      </div>
+
+      <h2>Что такое Backtest?</h2>
+      <p>Бэктест — это проверка торговой стратегии на <strong>исторических данных</strong>. Мы смотрим: как бы работала стратегия в прошлом? Это не гарантия будущего, но необходимый первый шаг.</p>
+
+      <div class="callout callout-danger">
+        <div class="callout-icon">🚨</div>
+        <div class="callout-body">
+          <div class="callout-title">Главная ошибка: Overfitting</div>
+          <div class="callout-text">Если вы «оптимизировали» параметры стратегии на тех же данных, на которых тестируете — результат ненадёжен. Разделяйте данные: 70% train, 30% test. Никогда не смотрите на test данные во время оптимизации.</div>
+        </div>
+      </div>
+
+      <h2>Метрики качества стратегии</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Метрика</th><th>Что измеряет</th><th>Хорошо</th><th>Плохо</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Total Return</strong></td><td>Общая доходность за период</td><td class="td-green">&gt;20% / год</td><td class="td-red">&lt;0%</td></tr>
+            <tr><td><strong>Sharpe Ratio</strong></td><td>Доходность / риск</td><td class="td-green">&gt;1.5</td><td class="td-red">&lt;0.5</td></tr>
+            <tr><td><strong>Max Drawdown</strong></td><td>Максимальная просадка</td><td class="td-green">&lt;15%</td><td class="td-red">&gt;30%</td></tr>
+            <tr><td><strong>Win Rate</strong></td><td>% прибыльных сделок</td><td class="td-green">&gt;55%</td><td class="td-red">&lt;40%</td></tr>
+            <tr><td><strong>Profit Factor</strong></td><td>Прибыль / Убытки</td><td class="td-green">&gt;1.5</td><td class="td-red">&lt;1.0</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Простой Backtest на Python</h2>
+<pre><span class="lang-badge">PYTHON</span><code><span class="kw">def</span> <span class="fn">backtest_pair_trading</span>(prices_a, prices_b, window<span class="op">=</span><span class="num">30</span>, entry_z<span class="op">=</span><span class="num">2.0</span>):
+    <span class="str">"""Бэктест Pair Trading стратегии"""</span>
+    <span class="kw">import</span> statsmodels.api <span class="kw">as</span> sm
+
+    log_a <span class="op">=</span> np.<span class="fn">log</span>(prices_a)
+    log_b <span class="op">=</span> np.<span class="fn">log</span>(prices_b)
+
+    <span class="cm"># Hedge ratio через OLS</span>
+    model  <span class="op">=</span> sm.<span class="fn">OLS</span>(log_a, log_b).<span class="fn">fit</span>()
+    beta   <span class="op">=</span> model.params[<span class="num">0</span>]
+    spread <span class="op">=</span> log_a <span class="op">-</span> beta <span class="op">*</span> log_b
+
+    <span class="cm"># Z-score и сигналы</span>
+    mu    <span class="op">=</span> spread.<span class="fn">rolling</span>(window).<span class="fn">mean</span>()
+    sigma <span class="op">=</span> spread.<span class="fn">rolling</span>(window).<span class="fn">std</span>()
+    z     <span class="op">=</span> (spread <span class="op">-</span> mu) <span class="op">/</span> sigma
+
+    pos <span class="op">=</span> pd.<span class="fn">Series</span>(<span class="num">0.0</span>, index<span class="op">=</span>spread.index)
+    pos[z <span class="op">&gt;</span>  entry_z] <span class="op">=</span> <span class="op">-</span><span class="num">1</span>
+    pos[z <span class="op">&lt;</span> <span class="op">-</span>entry_z] <span class="op">=</span>  <span class="num">1</span>
+    pos[z.<span class="fn">abs</span>() <span class="op">&lt;</span> <span class="num">0.5</span>] <span class="op">=</span>  <span class="num">0</span>
+    pos <span class="op">=</span> pos.<span class="fn">replace</span>(<span class="num">0</span>, np.nan).<span class="fn">ffill</span>().<span class="fn">fillna</span>(<span class="num">0</span>)
+
+    <span class="cm"># PnL: лонг A + шорт B (или наоборот)</span>
+    ret_a <span class="op">=</span> log_a.<span class="fn">diff</span>()
+    ret_b <span class="op">=</span> log_b.<span class="fn">diff</span>()
+    pnl   <span class="op">=</span> pos.<span class="fn">shift</span>(<span class="num">1</span>) <span class="op">*</span> (ret_a <span class="op">-</span> beta <span class="op">*</span> ret_b)
+
+    <span class="cm"># Комиссии (0.1% на сделку)</span>
+    trades <span class="op">=</span> pos.<span class="fn">diff</span>().<span class="fn">abs</span>().<span class="fn">fillna</span>(<span class="num">0</span>)
+    pnl   <span class="op">-=</span> trades <span class="op">*</span> <span class="num">0.001</span>
+
+    <span class="cm"># Метрики</span>
+    cum  <span class="op">=</span> (pnl + <span class="num">1</span>).<span class="fn">cumprod</span>()
+    sharpe <span class="op">=</span> pnl.<span class="fn">mean</span>() <span class="op">/</span> pnl.<span class="fn">std</span>() <span class="op">*</span> np.<span class="fn">sqrt</span>(<span class="num">252</span>)
+    dd   <span class="op">=</span> (cum <span class="op">/</span> cum.<span class="fn">cummax</span>() <span class="op">-</span> <span class="num">1</span>).<span class="fn">min</span>()
+
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"=== Backtest Results ==="</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Total Return:  {(cum.iloc[-1]-1)*100:.2f}%"</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Sharpe Ratio:  {sharpe:.3f}"</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Max Drawdown:  {dd*100:.2f}%"</span>)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Total Trades:  {(trades > 0).sum()}"</span>)
+    <span class="kw">return</span> cum, pnl</code></pre>
+
+      <div class="nav-buttons">
+        <button class="btn btn-ghost" onclick="showPage('strat1', document.querySelectorAll('.sidebar-link')[9])">← Назад</button>
+        <button class="btn btn-primary" onclick="showPage('strat3', document.querySelectorAll('.sidebar-link')[11])">Итог →</button>
+      </div>
+    </div>
+
+    <!-- ==================== PAGE: STRAT3 ==================== -->
+    <div class="page" id="page-strat3">
+      <div class="module-header">
+        <div class="module-number">Модуль 12</div>
+        <div class="module-title">Итог и дальнейший путь</div>
+        <div class="module-desc">Что вы изучили и как двигаться дальше.</div>
+        <div class="module-tags"><span class="tag tag-green">Финал</span></div>
+      </div>
+
+      <h2>Что вы теперь знаете</h2>
+      <div class="grid-2">
+        <div class="card" style="border-color: rgba(99,102,241,0.4);">
+          <div class="card-icon">✅</div>
+          <div class="card-title">Quant Trading основы</div>
+          <div class="card-desc">Alpha, mean reversion, арбитраж — ключевые концепции quantitative finance.</div>
+        </div>
+        <div class="card" style="border-color: rgba(99,102,241,0.4);">
+          <div class="card-icon">✅</div>
+          <div class="card-title">Корреляция и Pair Trading</div>
+          <div class="card-desc">Коэффициент Пирсона, коинтеграция, Z-score сигналы и полная механика стратегии.</div>
+        </div>
+        <div class="card" style="border-color: rgba(99,102,241,0.4);">
+          <div class="card-icon">✅</div>
+          <div class="card-title">Funding Rate Фарминг</div>
+          <div class="card-desc">Cash-and-Carry стратегия, расчёт доходности APR, управление рисками.</div>
+        </div>
+        <div class="card" style="border-color: rgba(99,102,241,0.4);">
+          <div class="card-icon">✅</div>
+          <div class="card-title">Python для трейдинга</div>
+          <div class="card-desc">ccxt, pandas, statsmodels — реальный код для корреляций, funding мониторинга и бэктеста.</div>
+        </div>
+      </div>
+
+      <h2>Дальнейшее обучение</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">→</div>
+          <div class="step-content">
+            <div class="step-title">Изучить весь репозиторий je-suis-tm</div>
+            <div class="step-desc">Oil Money, Monte Carlo, Smart Farmers — каждый проект расширяет понимание macro correlations.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">→</div>
+          <div class="step-content">
+            <div class="step-title">Запустить Funding мониторинг</div>
+            <div class="step-desc">Поставьте скрипт на VPS с алертами в Telegram. Наблюдайте реальные ставки 1-2 месяца перед тем как вкладывать деньги.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">→</div>
+          <div class="step-content">
+            <div class="step-title">Книги и ресурсы</div>
+            <div class="step-desc">"Quantitative Trading" Эрнеста Чана, курсы QuantLib, документация Backtrader / Zipline / Freqtrade.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">→</div>
+          <div class="step-content">
+            <div class="step-title">Начать с малым</div>
+            <div class="step-desc">Тестируйте на $100-500 прежде чем масштабировать. Реальный рынок всегда неожиданнее бэктеста.</div>
+          </div>
+        </div>
+      </div>
+
+      <h2>Ресурсы</h2>
+      <a class="link-card" href="https://github.com/je-suis-tm/quant-trading" target="_blank">
+        <span class="link-card-icon">🐙</span>
+        <div><div class="link-card-title">je-suis-tm/quant-trading — GitHub репозиторий</div><div class="link-card-url">github.com/je-suis-tm/quant-trading</div></div>
+      </a>
+      <a class="link-card" href="https://docs.ccxt.com/" target="_blank">
+        <span class="link-card-icon">📡</span>
+        <div><div class="link-card-title">CCXT — библиотека для подключения к биржам</div><div class="link-card-url">docs.ccxt.com</div></div>
+      </a>
+      <a class="link-card" href="https://www.statsmodels.org/" target="_blank">
+        <span class="link-card-icon">📊</span>
+        <div><div class="link-card-title">Statsmodels — коинтеграция, регрессия, статистика</div><div class="link-card-url">statsmodels.org</div></div>
+      </a>
+
+      <div class="callout callout-success">
+        <div class="callout-icon">🎉</div>
+        <div class="callout-body">
+          <div class="callout-title">Курс завершён!</div>
+          <div class="callout-text">Вы прошли полный курс от основ Quant Trading до реализации стратегий на Python. Следующий шаг — практика с реальными данными и постепенный переход к живой торговле.</div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn btn-ghost" onclick="showPage('strat2', document.querySelectorAll('.sidebar-link')[10])">← Назад</button>
+        <button class="btn btn-primary" onclick="showPage('intro', document.querySelectorAll('.sidebar-link')[0])">🏠 В начало</button>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+const pages = [
+  'intro','basics','corr1','corr2','corr3',
+  'fund1','fund2','fund3','fund4',
+  'strat1','strat2','strat3'
+];
+
+const titles = {
+  'intro':'О курсе','basics':'Основы Quant','corr1':'Корреляция',
+  'corr2':'Pair Trading','corr3':'Python: Корреляция','fund1':'Funding Rate',
+  'fund2':'Funding Фарминг','fund3':'Риски','fund4':'Python: Funding',
+  'strat1':'Quant Стратегии','strat2':'Backtesting','strat3':'Итог'
+};
+
+const visited = new Set(['intro']);
+
+function showPage(id, linkEl) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+  if (linkEl) linkEl.classList.add('active');
+  document.getElementById('breadcrumb-text').textContent = titles[id] || id;
+  visited.add(id);
+  updateProgress();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function updateProgress() {
+  const pct = Math.round(visited.size / pages.length * 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-pct').textContent = pct + '%';
+}
+
+function quizAnswer(el, correct) {
+  const opts = el.parentElement.querySelectorAll('.quiz-opt');
+  opts.forEach(o => { o.onclick = null; o.style.cursor = 'default'; });
+  if (correct) {
+    el.classList.add('correct');
+    el.querySelector('.letter').textContent = '✓';
+  } else {
+    el.classList.add('wrong');
+    el.querySelector('.letter').textContent = '✗';
+    opts.forEach(o => {
+      if (o.getAttribute('onclick') && o.getAttribute('onclick').includes('true'))
+        o.classList.add('correct');
+    });
+  }
+}
+
+// Init
+updateProgress();
+
+// Animate chart bars on intro load
+setTimeout(() => {
+  document.querySelectorAll('.chart-bar').forEach((bar, i) => {
+    setTimeout(() => { bar.style.height = bar.dataset.h + 'px'; }, i * 100);
+  });
+}, 500);
+</script>
+</body>
+</html>
